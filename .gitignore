@@ -1,0 +1,18 @@
+# 生成ファイル
+emaxis_all.csv
+sp500_raw.csv
+sp500_izanami.csv
+
+# 調査用一時ファイル
+debug_*.txt
+sp500_history.html
+
+# ローカルバックアップ
+*.bk
+
+# OS / エディタ
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
