@@ -1,68 +1,69 @@
 $ErrorActionPreference = "Stop"
 
-$allFile = "emaxis_all.csv"
-$rawFile = "sp500_raw.csv"
 $outFile = "sp500_izanami.csv"
 
 $url = "https://emaxis.am.mufg.jp/fund_file/setteirai/emaxis.csv"
+$allFile = Join-Path $env:TEMP ("emaxis_all_{0}.csv" -f ([guid]::NewGuid().ToString("N")))
 
-Invoke-WebRequest `
-    -Uri $url `
-    -OutFile $allFile `
-    -Headers @{ "User-Agent" = "Mozilla/5.0" }
+try {
+    Invoke-WebRequest `
+        -Uri $url `
+        -OutFile $allFile `
+        -UseBasicParsing `
+        -Headers @{ "User-Agent" = "Mozilla/5.0" }
 
-$lines = Get-Content $allFile -Encoding Default
+    $lines = Get-Content $allFile -Encoding Default
 
-# eMAXIS Slim S&P500 starts at column 30
-$dateCol = 30
-$priceCol = 31
+    # eMAXIS Slim S&P500 starts at column 30
+    $dateCol = 30
+    $priceCol = 31
 
-$raw = @()
-$raw += "Date,Price"
+    $out = @()
+    $out += "Date,Open,High,Low,Close,Volume"
 
-$out = @()
-$out += "Date,Open,High,Low,Close,Volume"
+    $count = 0
 
-$count = 0
+    for ($i = 2; $i -lt $lines.Count; $i++) {
+        $cols = $lines[$i].Split(",")
 
-for ($i = 2; $i -lt $lines.Count; $i++) {
-    $cols = $lines[$i].Split(",")
+        if ($cols.Count -le $priceCol) {
+            continue
+        }
 
-    if ($cols.Count -le $priceCol) {
-        continue
+        $date = $cols[$dateCol].Trim()
+        $price = $cols[$priceCol].Trim()
+
+        if ($date -notmatch "^\d{4}/\d{2}/\d{2}$") {
+            continue
+        }
+
+        if ($price -notmatch "^\d+$") {
+            continue
+        }
+
+        $out += ("{0},{1},{1},{1},{1},0" -f $date, $price)
+
+        $count++
     }
 
-    $date = $cols[$dateCol].Trim()
-    $price = $cols[$priceCol].Trim()
+    $out | Set-Content $outFile -Encoding Default
 
-    if ($date -notmatch "^\d{4}/\d{2}/\d{2}$") {
-        continue
-    }
-
-    if ($price -notmatch "^\d+$") {
-        continue
-    }
-
-    $raw += ("{0},{1}" -f $date, $price)
-    $out += ("{0},{1},{1},{1},{1},0" -f $date, $price)
-
-    $count++
+    Write-Host "Done."
+    Write-Host ("Count: {0}" -f $count)
+    Write-Host $outFile
 }
-
-$raw | Set-Content $rawFile -Encoding Default
-$out | Set-Content $outFile -Encoding Default
-
-Write-Host "Done."
-Write-Host ("Count: {0}" -f $count)
-Write-Host $rawFile
-Write-Host $outFile
+finally {
+    if (Test-Path $allFile) {
+        Remove-Item $allFile -Force
+    }
+}
 
 
 # SIG # Begin signature block
 # MIIr9wYJKoZIhvcNAQcCoIIr6DCCK+QCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDHgCRvU2PlzIAO
-# IRTTyzEVSoxhWKbtoie8HwJKuTC7rKCCJQkwggVvMIIEV6ADAgECAhBI/JO0YFWU
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAH4VPr6SDWx/8v
+# int02xYUTKzTZr5xxx/MWRm2VzDV8KCCJQkwggVvMIIEV6ADAgECAhBI/JO0YFWU
 # jTanyYqJ1pQWMA0GCSqGSIb3DQEBDAUAMHsxCzAJBgNVBAYTAkdCMRswGQYDVQQI
 # DBJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcMB1NhbGZvcmQxGjAYBgNVBAoM
 # EUNvbW9kbyBDQSBMaW1pdGVkMSEwHwYDVQQDDBhBQUEgQ2VydGlmaWNhdGUgU2Vy
@@ -264,34 +265,34 @@ Write-Host $outFile
 # byBMaW1pdGVkMSswKQYDVQQDEyJTZWN0aWdvIFB1YmxpYyBDb2RlIFNpZ25pbmcg
 # Q0EgUjM2AhAlsU8wbINk+sc7ZxruApwVMA0GCWCGSAFlAwQCAQUAoIGEMBgGCisG
 # AQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQw
-# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEILOS
-# Dji8K3Cn/oDJLdlEwehhi5PJDTj9B1rz4o6ulcrLMA0GCSqGSIb3DQEBAQUABIIC
-# AC3ZwxQQDqeYbwFDCy4fKSLQS3Wpz+EC/miopOtXukWUm9RyG6UhR142Jodbxr30
-# Q0+YpCY0CMu61bkzSbez8yyEI6GZtpGT21BHKB2G5fTzLSu5sIurZrZN6L4SkIdC
-# tHNES0u+z+rqAU6bFL09l/ptuhqm9apNwKC5syz/iCfMrVA9F7KbBsYKFuQQOKr8
-# oEbUfglloFp4eaxTDruIx6ENtJmSavOGaRPo7rEDVIEYuSSxJWOaZQn0y1sMAHGO
-# Vehzo3pH9TmDquPX1U6KM8DKh+qZmFQ1A8CmiA9GAcCc4jW+n85u6HdRbblCZYq1
-# t0g03fN6F3fHXTdDmlNZxIe1Y+WADuTX/WWL7rhdGRYfp1pP6TEZYCwH9BIXxgja
-# YJ22zsU0dSEXjJUg1Lqwmvu25Ogal9BDMgOh6XJVobt8SoSco4PHXHknm7gTb+Lw
-# n5e6BUljmxJTA+Da6Rf3ZU1exVGf3JWX0gjcrbx4rySLijZ659CgRksLyLk2jsw2
-# 9tNfgrNU+d3u8ybsY+TWOf3oWR0fVDZnf1UPoEOFxH0yzPoN+cT+8ezoBzYeHUw6
-# Np0ZY8gM50zCMhaKcEufPTu9G8QQysUUhbIr980V9wiscSdGTqM+GjYhMOLgGIFJ
-# 08fyv/28tFOnk4953qciB/N56VqarOdvGIlm+2WTGQLUoYIDJjCCAyIGCSqGSIb3
+# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIERR
+# PY6iTcI1bXwo9vpMzt/+OU/AwZi6eNHYpbXteT2nMA0GCSqGSIb3DQEBAQUABIIC
+# ADPt6FYcr0D9JU7seE3KN72gD48xte24fv7VmEYAZHMPCQjewaFNnX+Xpi8D7HBg
+# 6MTY6Yuik1mZwBcKlpBceBU1IwBbQFu83zUeAFgu7wGBeO5GteswLeiwII2/XGeX
+# 7Q91dOemmpk5AVj7RKqJxRM2CXB3zRQtRNccVuoX51qMVj8WFB2hI3j5YtlBRYce
+# QuyVpHUgzqWCb6RwKkeh6CMO+kYyY0KcQVIEfh1asrLTFg1vK2fD4M9KjZJSBSMu
+# U6VtR09+xtIi2I8hL2o4U4qkWCrYrMuPewjGhRc1k0uY9S9VtjlJFeHEnqnmnMDB
+# J4bNlvtakpXVYlGw0Sa8Dr5IN2gsFQAu4Yt/yD0n7A6lXfr+IK11AARL+7vpQQUc
+# ScT+k6sY1baJlJlhTPbQoX6APUZ2RXNe8LE//hplZ1VnCAGUwzVmaStwZ76pfjYF
+# T6XhNYJHtvV0IYGe+BwnQZXFbrnHtgOFzoXDqsylpGrhxnwLT4/9cqEhTCVGlAsm
+# Pu5ujwzCw76oRs66oXPHAdl4tCmvcDJnTSvDtkKqIg9Y/KMs4tW7R9UZOG2Vy+W2
+# cSedhZzO0sNjkbw7UhY9Qbv2i9BpJG8QPAWB0/mm3oBsTRKHvNmlv5s8bvBrjcCe
+# Pw18UYYIxgtExv1dy5pOguCD+QWAVAacp4iVVtpQfVmXoYIDJjCCAyIGCSqGSIb3
 # DQEJBjGCAxMwggMPAgEBMH0waTELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lD
 # ZXJ0LCBJbmMuMUEwPwYDVQQDEzhEaWdpQ2VydCBUcnVzdGVkIEc0IFRpbWVTdGFt
 # cGluZyBSU0E0MDk2IFNIQTI1NiAyMDI1IENBMQIQCoDvGEuN8QWC0cR2p5V0aDAN
 # BglghkgBZQMEAgEFAKBpMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZI
-# hvcNAQkFMQ8XDTI2MDYyMzA0NTA0OVowLwYJKoZIhvcNAQkEMSIEINusruQHS4cF
-# vRG51t83/Ct4stIw9+n2v38MeCMMRoRKMA0GCSqGSIb3DQEBAQUABIICAKswU9ms
-# HX+aK4AGlOOi9tPYUy7U6AdxWjE0WoaOGQxqDCQKFxEW8jYR4ZjoKnu35nr6okGp
-# LSemgFc3OapjwxDZ8UDU9zCDGDkjl/Ly7XWuo8dXl1fZvF7ppMpsY9RbdiyRdxe2
-# s8MNjIdNZef9eouCKBZjIlmA8KNH63ob2MBzW7V6SzxlqqocXIAWq0ye2dj0J3Pe
-# Z+7VsoLkN9blD6BKuYyV0Owd8roCzrh6AwPpGCfvxMQ1GQMB2WRZLSH9yyRJ6wDf
-# Myf+zO/a2vbhAlSXG0X0IqAJMwmI+HZ8SbvypY2l/3/soj4X9oXMPR8EKgIUitgv
-# pLnl5tkf01ARpOthNXdt5Jf05eG6MwJ/1n8cWjyByRei+0mSS36xiV8vGsPMC4tO
-# cplwV6ED8ygle0bSj5VvlQSbtFj6uJFfUFUwWS9rfCOP8NHGg3ru6GB2dEQmqFmv
-# J3cTLRQ9RQcidOUuCtXpz9heDeHKR/qnlKnrjIdgNAZjCxAswV+1WePa5iyWWIla
-# CdfsvZ9fM6CljgdwnBFh1n6X3cZxAd9n3cIAy1H8NXeCdmBTkCRaRP+yzhtvTylO
-# KLV+2UFTn1ilCVs10P2LOrRzjZ8Nk5dyJH+UFuH91MnEpETLkMZ/dFaIhgycD8wR
-# 7XiQYLuCQR5FTYqkYNUW29VTVbBb7UCfeFLv
+# hvcNAQkFMQ8XDTI2MDYyMzExMzkwM1owLwYJKoZIhvcNAQkEMSIEIA8rrMXWpZ75
+# pU9MWV1QZHZ7Rsj1Qq1zuRkLS3muTf1oMA0GCSqGSIb3DQEBAQUABIICADxeZLZC
+# O+LPDSY/ErGEgtx6Dzi5xH2EkcUvL5xReTVpc+pG6VUHxYvZuLC5jH+T8hvGYKXW
+# Wwct0T97ojG+rcAj51lyRi9NNPv2U7zhnnZLSMiE1bjRIn8vwuvwZcZX+HHZwO9S
+# ieUSSSZnd3Cv3BJUS648Yb1pKDhZzC8OThhGeue15hQBAGwoFN+lnNgmXVI90d0t
+# bPqqLVB/nUlYdtJ0BloQObkQWd88DRW0CbbbIc7TEjmFidewYxraMjwm471K7/gs
+# rtZpJNGpFu0qAH+mn8tPG/ruteIgjegCB5oIF7FCYpg74dKaTynK5WZoHIqz+1gY
+# dPduTrgIeox+BpKvj9/gz9yB7hzeUOu5uKdcs5mvM0uYA5T5Rgz57NdDlXmEr4AY
+# ssm9wzaTn3u39+b35gYQLYvJDzSUy01MWZPSrOGgu3nBpsbqM4NNUIeI2JWPa57u
+# tx988YgR4FiFYhUytJb/l6im3sstvMevclcta9NGMfvIxXNHlEjiuUjHnRrOdb/4
+# 7/8FI57bdggG6NHqSrD6MzPiTRp4UckD8k6YNZbtKsqECUCUY/8Jem8Awoco4xKe
+# a3Cm0hUbUEODvQRr4i4/3vDjXxI9XwgyfHbuCRRs6Z3zuhZg6Yu7xUtfqZvGJq9Q
+# +obU6Y/QfSPqNbgmHODLMVllhJi0ZIQ2QE28
 # SIG # End signature block
